@@ -12,4 +12,4 @@ jobs:
       - name: Compile sketch
         run: arduino-cli compile --profile controllino_micro --verbose
       - name: Lint sketch
-        uses: arduino/arduino-lint-action@v2
+        uses: arduino/arduino-lint-action@v3
