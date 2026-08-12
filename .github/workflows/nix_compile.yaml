@@ -1,0 +1,19 @@
+name: Build with nix flake setup
+on: [push]
+jobs:
+  build_with_nix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: install nix
+        uses: cachix/install-nix-action@630ae543ea3a38a9a4166f03376c02c50f408342 # v31.11.0
+        with:
+          extra_nix_config: |
+            trusted-public-keys = binarycache.tetov.se:84dA6GWAIObxcK+7BhlVreVThNAXELdtTX+i2fRipyE= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
+            substituters = https://cache.nixos.org https://binarycache.tetov.se
+      - name: Build devShell
+        run: nix build --no-link .#devShells.$(nix eval --impure --raw --expr 'builtins.currentSystem').default
+      - name: nix flake check
+        run: nix flake check --verbose --keep-going
+      - name: Build
+        run: nix develop -c arduino-cli compile --fqbn controllino_rp2:rp2040:controllino_micro --verbose
