@@ -5,15 +5,44 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+
       - name: install nix
         uses: cachix/install-nix-action@630ae543ea3a38a9a4166f03376c02c50f408342 # v31.11.0
         with:
           extra_nix_config: |
             trusted-public-keys = binarycache.tetov.se:84dA6GWAIObxcK+7BhlVreVThNAXELdtTX+i2fRipyE= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
             substituters = https://cache.nixos.org https://binarycache.tetov.se
+
       - name: Build devShell
         run: nix build --no-link .#devShells.$(nix eval --impure --raw --expr 'builtins.currentSystem').default
+
+      # from https://github.com/SFrijters/arduino-nix-template/blob/15074dc9179219ae3f226a9fc86dc1235e8170fb/.github/workflows/compile-check-blink.yml#L19-L41
+      - name: AppArmor fixes
+          # Work around https://github.com/containers/bubblewrap/issues/632
+          # Inspiration from https://github.com/chainguard-dev/melange/issues/1508#issue-2536640978
+        run: |
+          # Get the path to arduino-cli wrapper script that the devshell uses (ignore the user output for the devshell by using tail)
+          arduino_cli_path="$(nix develop --command which arduino-cli | tail -n1)"
+          # Get the path to the bwrap executable that the arduino-cli wrapper uses by grepping for the command inside the wrapper script
+          bwrap_path="$(grep "/bwrap" "${arduino_cli_path}")"
+
+          # Write an AppArmor config file that gives 'unconfined' permissions to the bwrap executable
+          cat << EOF | sudo tee /etc/apparmor.d/local-bwrap
+          abi <abi/4.0>,
+          include <tunables/global>
+
+          profile local-bwrap ${bwrap_path} flags=(unconfined) {
+            userns,
+
+            # Site-specific additions and overrides. See local/README for details.
+            include if exists <local/bwrap>
+          }
+          EOF
+          # Reload the AppArmor config
+          sudo systemctl reload apparmor
+
       - name: nix flake check
         run: nix flake check --verbose --keep-going
+
       - name: Build
         run: nix develop -c arduino-cli compile --fqbn controllino_rp2:rp2040:controllino_micro --verbose
