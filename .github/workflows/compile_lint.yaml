@@ -8,7 +8,8 @@ jobs:
       - uses: actions/checkout@v7
       - name: Install Arduino CLI
         uses: arduino/setup-arduino-cli@v2
+      - run: arduino-cli version
       - name: Compile sketch
-        run: arduino-cli compile --profile controllino_micro
+        run: arduino-cli compile --profile controllino_micro --verbose
       - name: Lint sketch
         uses: arduino/arduino-lint-action@v2
